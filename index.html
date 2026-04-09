@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TULU - Disena Tu Ropa en 3D</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <!-- Top bar -->
+    <nav class="topbar">
+        <div class="topbar-left">
+            <span class="logo"><i class="fas fa-tshirt"></i> TULU</span>
+            <span class="logo-sub">3D Fashion Studio</span>
+        </div>
+        <div class="step-indicators" id="stepIndicators">
+            <div class="step-dot active" data-step="0"><span>1</span> Tu Cuerpo</div>
+            <div class="step-line"></div>
+            <div class="step-dot" data-step="1"><span>2</span> Disena tu Outfit</div>
+            <div class="step-line"></div>
+            <div class="step-dot" data-step="2"><span>3</span> Finalizar</div>
+        </div>
+        <div class="topbar-right">
+            <button class="cart-btn" id="cartBtn"><i class="fas fa-shopping-bag"></i><span class="badge" id="cartBadge">0</span></button>
+        </div>
+    </nav>
+
+    <!-- ===== WIZARD CONTAINER (horizontal slide) ===== -->
+    <div class="wizard-viewport">
+        <div class="wizard-track" id="wizardTrack">
+
+            <!-- ========== STEP 1: BODY ========== -->
+            <div class="wizard-step" id="step0">
+                <div class="step-body-layout">
+                    <div class="step-panel body-panel">
+                        <div class="panel-scroll">
+                            <h2 class="step-title"><i class="fas fa-user-alt"></i> Paso 1: Tu Cuerpo</h2>
+                            <p class="step-desc">Ingresa tus medidas para crear un modelo 3D personalizado</p>
+
+                            <div class="field-group">
+                                <label class="field-label">Genero</label>
+                                <div class="toggle-row">
+                                    <button class="toggle-btn active" data-gender="female"><i class="fas fa-venus"></i> Mujer</button>
+                                    <button class="toggle-btn" data-gender="male"><i class="fas fa-mars"></i> Hombre</button>
+                                </div>
+                            </div>
+
+                            <div class="field-group">
+                                <label class="field-label">Tono de piel</label>
+                                <div class="tone-row">
+                                    <button class="tone active" data-tone="#FDDCB5" style="background:#FDDCB5"></button>
+                                    <button class="tone" data-tone="#E8B88A" style="background:#E8B88A"></button>
+                                    <button class="tone" data-tone="#C68C53" style="background:#C68C53"></button>
+                                    <button class="tone" data-tone="#8D5524" style="background:#8D5524"></button>
+                                    <button class="tone" data-tone="#613318" style="background:#613318"></button>
+                                    <button class="tone" data-tone="#3C1F0E" style="background:#3C1F0E"></button>
+                                </div>
+                            </div>
+
+                            <div class="measurements">
+                                <div class="measure"><label>Altura <b id="vH">170</b> cm</label><input type="range" id="sH" min="150" max="200" value="170"></div>
+                                <div class="measure"><label>Pecho <b id="vC">90</b> cm</label><input type="range" id="sC" min="70" max="130" value="90"></div>
+                                <div class="measure"><label>Cintura <b id="vW">70</b> cm</label><input type="range" id="sW" min="55" max="120" value="70"></div>
+                                <div class="measure"><label>Cadera <b id="vHip">95</b> cm</label><input type="range" id="sHip" min="70" max="140" value="95"></div>
+                                <div class="measure"><label>Hombros <b id="vSh">42</b> cm</label><input type="range" id="sSh" min="34" max="56" value="42"></div>
+                            </div>
+
+                            <button class="btn-next" id="goStep2">
+                                Siguiente: Disenar Outfit <i class="fas fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="step-viewport" id="viewport1"></div>
+                </div>
+            </div>
+
+            <!-- ========== STEP 2: OUTFIT BUILDER ========== -->
+            <div class="wizard-step" id="step1">
+                <div class="step-builder-layout">
+                    <!-- Garment layers sidebar -->
+                    <div class="layers-sidebar">
+                        <div class="layers-header">
+                            <h3><i class="fas fa-layer-group"></i> Prendas</h3>
+                            <button class="btn-add-garment" id="addGarmentBtn"><i class="fas fa-plus"></i></button>
+                        </div>
+                        <div class="layers-list" id="layersList"></div>
+                        <div class="layers-footer">
+                            <button class="btn-small" id="goStep1Back"><i class="fas fa-arrow-left"></i> Medidas</button>
+                            <button class="btn-small btn-accent" id="goStep3">Finalizar <i class="fas fa-arrow-right"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- 3D Viewport center -->
+                    <div class="builder-viewport" id="viewport2">
+                        <div class="vp-overlay-hint" id="vpHint">
+                            <i class="fas fa-mouse-pointer"></i> Arrastra para rotar &bull; Scroll para zoom
+                        </div>
+                    </div>
+
+                    <!-- Modular constructor panel (right) -->
+                    <div class="constructor-panel" id="constructorPanel">
+                        <div class="panel-scroll" id="constructorContent">
+                            <div class="constructor-empty">
+                                <i class="fas fa-hand-pointer"></i>
+                                <p>Selecciona una prenda de la lista o agrega una nueva para empezar a disenar</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== STEP 3: SUMMARY ========== -->
+            <div class="wizard-step" id="step2">
+                <div class="step-summary-layout">
+                    <div class="summary-left" id="viewport3"></div>
+                    <div class="summary-right">
+                        <div class="panel-scroll">
+                            <h2 class="step-title"><i class="fas fa-check-circle"></i> Tu Outfit Personalizado</h2>
+                            <div id="outfitSummary"></div>
+                            <div class="summary-total">
+                                <span>Total estimado:</span>
+                                <span class="total-price" id="totalPrice">$0</span>
+                            </div>
+                            <div class="summary-actions">
+                                <button class="btn-primary" id="btnWhatsApp"><i class="fab fa-whatsapp"></i> Cotizar por WhatsApp</button>
+                                <button class="btn-outline" id="btnEmail"><i class="fas fa-envelope"></i> Cotizar por Email</button>
+                                <button class="btn-outline" id="btnScreenshot"><i class="fas fa-camera"></i> Descargar Captura</button>
+                                <button class="btn-ghost" id="goStep2Back"><i class="fas fa-arrow-left"></i> Volver a Editar</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add garment modal -->
+    <div class="modal-overlay" id="addGarmentModal">
+        <div class="modal-box">
+            <h3><i class="fas fa-plus-circle"></i> Agregar Prenda</h3>
+            <div class="garment-picker" id="garmentPicker"></div>
+            <button class="btn-ghost modal-close" id="modalClose"><i class="fas fa-times"></i> Cancelar</button>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script src="js/textures.js"></script>
+    <script src="js/body-model.js"></script>
+    <script src="js/garment-builder.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
