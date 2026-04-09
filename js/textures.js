@@ -320,19 +320,18 @@ function makeTextureMaterial(pattern, color, roughnessOverride) {
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
     texture.repeat.set(3, 3);
-    texture.anisotropy = 4;
 
     // Fabric-specific physical properties
     const fabricProps = {
-        solid:    { roughness: 0.72, sheen: 0.3, sheenColor: '#FFFFFF' },
-        linen:    { roughness: 0.88, sheen: 0.1, sheenColor: '#F5F0E8' },
-        denim:    { roughness: 0.8,  sheen: 0.15, sheenColor: '#6688BB' },
-        stripes:  { roughness: 0.68, sheen: 0.25, sheenColor: '#FFFFFF' },
-        hstripes: { roughness: 0.68, sheen: 0.25, sheenColor: '#FFFFFF' },
-        plaid:    { roughness: 0.75, sheen: 0.15, sheenColor: '#DDDDDD' },
-        dots:     { roughness: 0.65, sheen: 0.3, sheenColor: '#FFFFFF' },
-        floral:   { roughness: 0.6,  sheen: 0.35, sheenColor: '#FFFFFF' },
-        camo:     { roughness: 0.85, sheen: 0.05, sheenColor: '#555555' },
+        solid:    { roughness: 0.72, metalness: 0.0,  clearcoat: 0.0  },
+        linen:    { roughness: 0.88, metalness: 0.0,  clearcoat: 0.0  },
+        denim:    { roughness: 0.8,  metalness: 0.0,  clearcoat: 0.05 },
+        stripes:  { roughness: 0.68, metalness: 0.0,  clearcoat: 0.02 },
+        hstripes: { roughness: 0.68, metalness: 0.0,  clearcoat: 0.02 },
+        plaid:    { roughness: 0.75, metalness: 0.0,  clearcoat: 0.01 },
+        dots:     { roughness: 0.65, metalness: 0.0,  clearcoat: 0.03 },
+        floral:   { roughness: 0.6,  metalness: 0.0,  clearcoat: 0.04 },
+        camo:     { roughness: 0.85, metalness: 0.0,  clearcoat: 0.0  },
     };
     const props = fabricProps[pattern] || fabricProps.solid;
     const roughness = roughnessOverride || props.roughness;
@@ -344,28 +343,17 @@ function makeTextureMaterial(pattern, color, roughnessOverride) {
     normalMap.wrapT = THREE.RepeatWrapping;
     normalMap.repeat.set(4, 4);
 
-    // Wrinkle normal map for macro folds
-    const wrinkleCanvas = generateWrinkleMap(128);
-    const wrinkleMap = new THREE.CanvasTexture(wrinkleCanvas);
-    wrinkleMap.wrapS = THREE.RepeatWrapping;
-    wrinkleMap.wrapT = THREE.RepeatWrapping;
-    wrinkleMap.repeat.set(2, 2);
-
-    // Use MeshPhysicalMaterial for realistic fabric rendering
+    // MeshPhysicalMaterial compatible with Three.js r128
     const mat = new THREE.MeshPhysicalMaterial({
         map: texture,
         normalMap: normalMap,
-        normalScale: new THREE.Vector2(0.35, 0.35),
+        normalScale: new THREE.Vector2(0.3, 0.3),
         roughness: roughness,
-        metalness: 0.0,
+        metalness: props.metalness,
         side: THREE.DoubleSide,
-        // Sheen for fabric soft highlight (like velvet/cotton catch light)
-        sheen: props.sheen,
-        sheenColor: new THREE.Color(props.sheenColor),
-        sheenRoughness: 0.6,
-        // Slight clearcoat for woven fabrics
-        clearcoat: pattern === 'denim' ? 0.05 : 0,
+        clearcoat: props.clearcoat,
         clearcoatRoughness: 0.8,
+        reflectivity: 0.2,
     });
 
     return mat;
