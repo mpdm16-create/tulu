@@ -177,11 +177,15 @@ input,select,textarea{font-family:inherit}
 .mobile-step-bar{flex:1;height:4px;background:var(--bg4);border-radius:4px;overflow:hidden}
 .mobile-step-fill{height:100%;background:linear-gradient(90deg,var(--p),var(--acc));border-radius:4px;transition:width .4s ease;width:33%}
 
+/* ===== CONSTRUCTOR DRAWER (mobile) ===== */
+.drawer-toggle{display:none}
+.drawer-handle{display:none}
+
 /* ===== RESPONSIVE ===== */
 
 /* --- Laptop / small desktop --- */
 @media(max-width:1200px){
-    .step-builder-layout{grid-template-columns:200px 1fr 320px}
+    .step-builder-layout{grid-template-columns:200px 1fr 300px}
     .con-options{gap:6px}
     .con-opt{padding:8px 14px;font-size:.75rem}
 }
@@ -191,7 +195,7 @@ input,select,textarea{font-family:inherit}
     .step-body-layout{grid-template-columns:1fr;grid-template-rows:1fr 45vh}
     .step-viewport{min-height:200px}
     .step-panel{border-right:none;border-bottom:1px solid var(--brd)}
-    .step-builder-layout{grid-template-columns:170px 1fr 280px}
+    .step-builder-layout{grid-template-columns:180px 1fr 260px}
     .step-summary-layout{grid-template-columns:1fr 350px}
     .step-indicators{display:none}
     .con-colors{grid-template-columns:repeat(6,1fr)}
@@ -200,38 +204,89 @@ input,select,textarea{font-family:inherit}
     .wizard-viewport{bottom:56px}
 }
 
-/* --- Tablet portrait --- */
+/* --- Tablet portrait & mobile shared --- */
 @media(max-width:768px){
     .topbar{padding:0 12px;height:50px}
     .logo{font-size:1rem}
     .logo-sub{display:none}
     .wizard-viewport{top:50px;bottom:56px}
 
-    /* Step 1 */
-    .step-body-layout{grid-template-columns:1fr;grid-template-rows:auto 40vh}
+    /* Step 1: stack vertically, keep 3D visible */
+    .step-body-layout{grid-template-columns:1fr;grid-template-rows:1fr 40vh}
+    .step-viewport{min-height:180px}
+    .step-panel{border-right:none;border-bottom:1px solid var(--brd)}
     .panel-scroll{padding:20px 16px}
     .step-title{font-size:1rem}
     .step-desc{font-size:.78rem;margin-bottom:16px}
     .btn-next{display:none}
 
-    /* Step 2 */
-    .step-builder-layout{grid-template-columns:1fr;grid-template-rows:auto 40vh 1fr}
-    .layers-sidebar{flex-direction:row;border-right:none;border-bottom:1px solid var(--brd);min-height:auto;max-height:none}
-    .layers-header{padding:8px 12px}
-    .layers-header h3{font-size:.8rem}
-    .layers-list{flex-direction:row;overflow-x:auto;display:flex;gap:6px;padding:6px}
+    /* Step 2: full rework - stacked with drawer */
+    .step-builder-layout{
+        display:flex;flex-direction:column;height:100%;position:relative;overflow:hidden}
+
+    /* Layers bar = horizontal strip at top */
+    .layers-sidebar{
+        flex:0 0 auto;flex-direction:row;border-right:none;border-bottom:1px solid var(--brd);
+        min-height:auto;max-height:none;overflow:visible}
+    .layers-header{padding:8px 12px;border-bottom:none;flex-shrink:0}
+    .layers-header h3{font-size:.78rem}
+    .layers-header h3 span{display:none}
+    .layers-list{
+        flex:1;flex-direction:row;overflow-x:auto;overflow-y:hidden;display:flex;
+        gap:6px;padding:6px 8px;scrollbar-width:none}
+    .layers-list::-webkit-scrollbar{display:none}
     .layers-footer{display:none}
-    .layer-card{flex-shrink:0;min-width:130px}
-    .constructor-panel{border-left:none;border-top:1px solid var(--brd);max-height:none;overflow:visible}
-    .constructor-panel .panel-scroll{overflow-y:auto;max-height:50vh;padding:16px}
+    .layer-card{flex-shrink:0;min-width:120px;margin-bottom:0;padding:8px 10px;gap:8px}
+    .layer-card .lc-icon{width:28px;height:28px;font-size:.75rem}
+    .layer-card .lc-name{font-size:.72rem}
+    .layer-card .lc-detail{font-size:.58rem}
+    .layer-card .lc-color{width:12px;height:12px}
+
+    /* 3D viewport fills remaining space */
+    .builder-viewport{flex:1;min-height:0}
+    .vp-overlay-hint{font-size:.62rem;padding:5px 12px}
+
+    /* Constructor = slide-up drawer from bottom */
+    .constructor-panel{
+        position:absolute;bottom:0;left:0;right:0;
+        max-height:60%;height:auto;
+        border-left:none;border-top:none;
+        border-radius:16px 16px 0 0;
+        background:var(--bg2);
+        transform:translateY(calc(100% - 44px));
+        transition:transform .35s cubic-bezier(.4,0,.2,1);
+        z-index:10;
+        box-shadow:0 -4px 30px rgba(0,0,0,.5)}
+    .constructor-panel.open{transform:translateY(0)}
+    .constructor-panel .panel-scroll{overflow-y:auto;max-height:calc(60vh - 44px);padding:16px;padding-top:8px}
+
+    /* Drawer handle */
+    .drawer-handle{
+        display:flex;align-items:center;justify-content:center;
+        padding:10px 0 6px;cursor:pointer;flex-shrink:0}
+    .drawer-handle::before{
+        content:'';width:40px;height:4px;border-radius:4px;background:var(--tx3);opacity:.4}
+    .drawer-toggle{
+        display:flex;position:absolute;top:0;left:0;right:0;height:44px;
+        align-items:center;justify-content:center;gap:6px;
+        background:linear-gradient(135deg,var(--pd),var(--p));
+        color:#fff;font-size:.75rem;font-weight:600;
+        border-radius:16px 16px 0 0;cursor:pointer;z-index:1;border:none}
+    .drawer-toggle i{font-size:.7rem;transition:transform .3s}
+    .constructor-panel.open .drawer-toggle i{transform:rotate(180deg)}
+
     .con-options{gap:6px}
     .con-opt{padding:10px 14px;font-size:.78rem;min-height:44px}
     .con-colors{grid-template-columns:repeat(8,1fr);gap:6px}
     .con-clr{min-width:28px;min-height:28px}
     .con-textures{grid-template-columns:repeat(3,1fr)}
+    .constructor-empty{height:auto;padding:20px 0}
+    .constructor-empty i{font-size:1.5rem}
+    .constructor-empty p{font-size:.78rem}
 
     /* Step 3 */
     .step-summary-layout{grid-template-columns:1fr;grid-template-rows:35vh 1fr}
+    .summary-left{min-height:180px}
     .summary-right{border-left:none;border-top:1px solid var(--brd);overflow-y:auto}
     .summary-right .panel-scroll{padding:20px 16px}
 
@@ -246,7 +301,7 @@ input,select,textarea{font-family:inherit}
     .measure input[type=range]{height:10px}
     .measure input[type=range]::-webkit-slider-thumb{width:26px;height:26px}
 
-    /* Toast position above mobile nav */
+    /* Toast above mobile nav */
     .toast{bottom:70px;right:12px;left:12px;justify-content:center}
 }
 
@@ -258,7 +313,7 @@ input,select,textarea{font-family:inherit}
     .wizard-viewport{top:48px;bottom:56px}
 
     /* Step 1 */
-    .step-body-layout{grid-template-rows:1fr 35vh}
+    .step-body-layout{grid-template-rows:1fr 30vh}
     .panel-scroll{padding:16px 14px}
     .step-title{font-size:.92rem}
     .field-label{font-size:.68rem}
@@ -269,17 +324,19 @@ input,select,textarea{font-family:inherit}
     .tone{width:36px;height:36px}
 
     /* Step 2 */
-    .step-builder-layout{grid-template-rows:auto 35vh 1fr}
-    .layer-card{min-width:110px;padding:8px 10px}
-    .layer-card .lc-name{font-size:.72rem}
-    .layer-card .lc-detail{font-size:.6rem}
+    .layer-card{min-width:100px;padding:7px 8px}
+    .layer-card .lc-icon{width:24px;height:24px;font-size:.7rem}
+    .layer-card .lc-name{font-size:.68rem}
+    .layer-card .lc-detail{display:none}
+    .layer-card .lc-del{font-size:.62rem}
+    .constructor-panel{max-height:65%}
+    .constructor-panel .panel-scroll{max-height:calc(65vh - 44px);padding:14px 12px}
     .con-colors{grid-template-columns:repeat(6,1fr);gap:5px}
     .con-opt{padding:9px 12px;font-size:.74rem}
     .con-textures{grid-template-columns:repeat(2,1fr)}
-    .constructor-panel .panel-scroll{padding:14px 12px}
 
     /* Step 3 */
-    .step-summary-layout{grid-template-rows:30vh 1fr}
+    .step-summary-layout{grid-template-rows:28vh 1fr}
     .summary-right .panel-scroll{padding:16px 14px}
     .total-price{font-size:1.3rem}
     .btn-primary{padding:12px;font-size:.82rem}
@@ -295,7 +352,7 @@ input,select,textarea{font-family:inherit}
     .modal-box{width:96%;padding:16px;margin:0 8px}
     .modal-box h3{font-size:.92rem}
 
-    /* Mobile nav adjustments */
+    /* Mobile nav */
     .mobile-nav{padding:0 10px}
     .mobile-nav-btn{padding:8px 14px;font-size:.74rem}
 }

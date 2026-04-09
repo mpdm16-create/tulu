@@ -100,6 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('mobileBack')?.addEventListener('click', () => goToStep(currentStep - 1));
     document.getElementById('mobileNext')?.addEventListener('click', () => goToStep(currentStep + 1));
 
+    // Constructor drawer (mobile)
+    initDrawer();
+
     // Touch swipe support for wizard
     initTouchSwipe();
 
@@ -111,6 +114,43 @@ document.addEventListener('DOMContentLoaded', () => {
     // Start at step 0
     goToStep(0);
 });
+
+// ===== CONSTRUCTOR DRAWER (MOBILE) =====
+function initDrawer() {
+    const panel = document.getElementById('constructorPanel');
+    const toggle = document.getElementById('drawerToggle');
+    const handle = document.getElementById('drawerHandle');
+    if (!panel || !toggle) return;
+
+    function toggleDrawer() {
+        panel.classList.toggle('open');
+        // Resize 3D when drawer opens/closes
+        setTimeout(() => { if (model) model.onResize(); }, 400);
+    }
+
+    toggle.addEventListener('click', toggleDrawer);
+    if (handle) handle.addEventListener('click', toggleDrawer);
+
+    // Close drawer when clicking on 3D viewport (mobile)
+    const vp = document.getElementById('viewport2');
+    if (vp) {
+        vp.addEventListener('click', (e) => {
+            if (panel.classList.contains('open') && window.innerWidth <= 768) {
+                panel.classList.remove('open');
+            }
+        });
+    }
+}
+
+// Open drawer automatically when a garment is selected
+const _origSelectLayer = selectLayer;
+selectLayer = function(idx) {
+    _origSelectLayer(idx);
+    const panel = document.getElementById('constructorPanel');
+    if (panel && window.innerWidth <= 768 && idx >= 0) {
+        panel.classList.add('open');
+    }
+};
 
 // ===== TOUCH SWIPE =====
 function initTouchSwipe() {
