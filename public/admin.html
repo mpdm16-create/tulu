@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TULU - Panel Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root{--p:#7C3AED;--pl:#A78BFA;--pd:#5B21B6;--acc:#F43F5E;--bg:#08080F;--bg2:#0F0F1C;--bg3:#171730;--bg4:#222244;--tx:#fff;--tx2:#C4C4D8;--tx3:#7777A0;--brd:rgba(255,255,255,.06);--r:14px;--rs:8px}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{min-height:100vh;font-family:'Poppins',sans-serif;background:var(--bg);color:var(--tx)}
+        .admin-header{background:var(--bg2);border-bottom:1px solid var(--brd);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+        .admin-header .logo{font-size:1.1rem;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,var(--p),var(--acc));-webkit-background-clip:text;-webkit-text-fill-color:transparent;display:flex;align-items:center;gap:8px}
+        .admin-header .logo span{font-size:.65rem;color:var(--acc);background:rgba(244,63,94,.15);padding:3px 8px;border-radius:20px;-webkit-text-fill-color:var(--acc);font-weight:600;letter-spacing:1px}
+        .header-actions{display:flex;gap:10px;align-items:center}
+        .header-actions .user-name{color:var(--tx3);font-size:.78rem}
+        .btn-sm{padding:8px 14px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--rs);color:var(--tx3);font-size:.72rem;font-weight:600;font-family:inherit;cursor:pointer;transition:all .3s;display:flex;align-items:center;gap:6px}
+        .btn-sm:hover{border-color:var(--p);color:var(--pl)}
+        .btn-sm.danger:hover{border-color:var(--acc);color:var(--acc)}
+        .admin-body{padding:24px;max-width:1400px;margin:0 auto}
+
+        /* Stats */
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:32px}
+        .stat-card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);padding:20px;display:flex;align-items:center;gap:16px}
+        .stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+        .stat-icon.purple{background:rgba(124,58,237,.15);color:var(--pl)}
+        .stat-icon.pink{background:rgba(244,63,94,.15);color:var(--acc)}
+        .stat-icon.green{background:rgba(22,163,74,.15);color:#16A34A}
+        .stat-icon.amber{background:rgba(245,158,11,.15);color:#F59E0B}
+        .stat-value{font-size:1.5rem;font-weight:800}
+        .stat-label{font-size:.72rem;color:var(--tx3)}
+
+        /* Tabs */
+        .admin-tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--bg2);border-radius:var(--rs);padding:4px;width:fit-content}
+        .admin-tab{padding:10px 20px;background:none;border:none;color:var(--tx3);font-size:.8rem;font-weight:600;font-family:inherit;cursor:pointer;border-radius:6px;transition:all .3s;display:flex;align-items:center;gap:6px}
+        .admin-tab.active{background:var(--p);color:#fff}
+        .admin-tab:hover:not(.active){color:var(--tx)}
+        .tab-panel{display:none}
+        .tab-panel.active{display:block}
+
+        /* Orders table */
+        .table-wrap{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden}
+        .table-header{padding:16px 20px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between}
+        .table-header h3{font-size:.95rem;display:flex;align-items:center;gap:8px}
+        .table-header h3 i{color:var(--pl)}
+        table{width:100%;border-collapse:collapse}
+        th{padding:12px 16px;text-align:left;font-size:.7rem;font-weight:600;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--brd);background:var(--bg3)}
+        td{padding:12px 16px;font-size:.8rem;border-bottom:1px solid var(--brd);color:var(--tx2)}
+        tr:hover td{background:rgba(124,58,237,.03)}
+        .badge{padding:4px 10px;border-radius:20px;font-size:.65rem;font-weight:600;display:inline-block}
+        .badge.pending{background:rgba(245,158,11,.15);color:#F59E0B}
+        .badge.confirmed{background:rgba(59,130,246,.15);color:#3B82F6}
+        .badge.in_production{background:rgba(124,58,237,.15);color:var(--pl)}
+        .badge.ready{background:rgba(22,163,74,.15);color:#16A34A}
+        .badge.delivered{background:rgba(22,163,74,.25);color:#16A34A}
+        .badge.cancelled{background:rgba(244,63,94,.15);color:var(--acc)}
+
+        .garment-chips{display:flex;flex-wrap:wrap;gap:4px}
+        .garment-chip{padding:3px 8px;background:var(--bg4);border-radius:4px;font-size:.68rem;display:flex;align-items:center;gap:4px}
+        .garment-chip .color-dot{width:10px;height:10px;border-radius:50%;border:1px solid var(--brd)}
+
+        .actions-cell{display:flex;gap:6px}
+        .btn-icon{width:32px;height:32px;border-radius:var(--rs);background:var(--bg3);border:1px solid var(--brd);color:var(--tx3);font-size:.72rem;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .3s}
+        .btn-icon:hover{border-color:var(--p);color:var(--pl)}
+        .btn-icon.download:hover{border-color:#16A34A;color:#16A34A}
+
+        select.status-select{padding:4px 8px;background:var(--bg3);border:1px solid var(--brd);border-radius:4px;color:var(--tx2);font-size:.72rem;font-family:inherit;cursor:pointer}
+        select.status-select:focus{border-color:var(--p);outline:none}
+
+        .empty-state{text-align:center;padding:60px 20px;color:var(--tx3)}
+        .empty-state i{font-size:3rem;opacity:.2;margin-bottom:12px;display:block}
+        .empty-state p{font-size:.88rem}
+
+        /* Order detail modal */
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+        .modal-overlay.open{display:flex}
+        .modal-box{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);padding:24px;max-width:700px;width:95%;max-height:85vh;overflow-y:auto}
+        .modal-box h3{font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+        .modal-box h3 i{color:var(--pl)}
+        .modal-close{background:none;border:none;color:var(--tx3);cursor:pointer;font-size:1.1rem;padding:4px}
+        .modal-close:hover{color:var(--acc)}
+        .detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--brd);font-size:.82rem}
+        .detail-row .label{color:var(--tx3)}
+        .detail-row .value{color:var(--tx);font-weight:500}
+
+        /* Responsive */
+        @media(max-width:768px){
+            .admin-body{padding:16px}
+            .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px}
+            .stat-card{padding:14px}
+            .stat-value{font-size:1.2rem}
+            table{font-size:.72rem}
+            th,td{padding:8px 10px}
+            .admin-tabs{overflow-x:auto;width:100%}
+            .admin-tab{white-space:nowrap;padding:8px 14px;font-size:.72rem}
+            .garment-chips{flex-direction:column}
+        }
+        @media(max-width:480px){
+            .admin-header{padding:10px 14px;flex-wrap:wrap;gap:8px}
+            .stats-grid{grid-template-columns:1fr 1fr}
+        }
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="logo"><i class="fas fa-tshirt"></i> TULU <span>ADMIN</span></div>
+        <div class="header-actions">
+            <span class="user-name" id="adminName"></span>
+            <a href="/index.html" class="btn-sm"><i class="fas fa-palette"></i> Estudio</a>
+            <button class="btn-sm danger" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Salir</button>
+        </div>
+    </header>
+
+    <div class="admin-body">
+        <!-- Stats -->
+        <div class="stats-grid" id="statsGrid">
+            <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-shopping-bag"></i></div><div><div class="stat-value" id="sTotalOrders">0</div><div class="stat-label">Pedidos totales</div></div></div>
+            <div class="stat-card"><div class="stat-icon pink"><i class="fas fa-clock"></i></div><div><div class="stat-value" id="sPending">0</div><div class="stat-label">Pendientes</div></div></div>
+            <div class="stat-card"><div class="stat-icon green"><i class="fas fa-users"></i></div><div><div class="stat-value" id="sClients">0</div><div class="stat-label">Clientes</div></div></div>
+            <div class="stat-card"><div class="stat-icon amber"><i class="fas fa-dollar-sign"></i></div><div><div class="stat-value" id="sRevenue">$0</div><div class="stat-label">Ingresos</div></div></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="admin-tabs">
+            <button class="admin-tab active" data-tab="orders"><i class="fas fa-shopping-bag"></i> Pedidos</button>
+            <button class="admin-tab" data-tab="clients"><i class="fas fa-users"></i> Clientes</button>
+        </div>
+
+        <!-- Orders Panel -->
+        <div class="tab-panel active" id="ordersPanel">
+            <div class="table-wrap">
+                <div class="table-header">
+                    <h3><i class="fas fa-list"></i> Todos los Pedidos</h3>
+                </div>
+                <div style="overflow-x:auto">
+                    <table>
+                        <thead><tr><th>#</th><th>Cliente</th><th>Prendas</th><th>Total</th><th>Estado</th><th>Fecha</th><th>Acciones</th></tr></thead>
+                        <tbody id="ordersBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Clients Panel -->
+        <div class="tab-panel" id="clientsPanel">
+            <div class="table-wrap">
+                <div class="table-header">
+                    <h3><i class="fas fa-users"></i> Clientes Registrados</h3>
+                </div>
+                <div style="overflow-x:auto">
+                    <table>
+                        <thead><tr><th>Nombre</th><th>Email</th><th>Telefono</th><th>Pedidos</th><th>Total Gastado</th><th>Registro</th></tr></thead>
+                        <tbody id="clientsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Detail Modal -->
+    <div class="modal-overlay" id="orderModal">
+        <div class="modal-box">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h3><i class="fas fa-receipt"></i> Detalle del Pedido <span id="modalOrderId"></span></h3>
+                <button class="modal-close" id="modalClose"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin + '/api';
+        const token = localStorage.getItem('tulu_token');
+        const user = JSON.parse(localStorage.getItem('tulu_user') || '{}');
+
+        if (!token || user.role !== 'admin') {
+            window.location.href = '/login.html';
+        }
+
+        document.getElementById('adminName').textContent = user.name || 'Admin';
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('tulu_token');
+            localStorage.removeItem('tulu_user');
+            window.location.href = '/login.html';
+        });
+
+        // Tabs
+        document.querySelectorAll('.admin-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab + 'Panel').classList.add('active');
+            });
+        });
+
+        // Modal
+        document.getElementById('modalClose').addEventListener('click', () => document.getElementById('orderModal').classList.remove('open'));
+        document.getElementById('orderModal').addEventListener('click', (e) => { if (e.target.id === 'orderModal') e.target.classList.remove('open'); });
+
+        const statusLabels = { pending:'Pendiente', confirmed:'Confirmado', in_production:'En Produccion', ready:'Listo', delivered:'Entregado', cancelled:'Cancelado' };
+        function fmtPrice(n) { return '$' + (n || 0).toLocaleString('es-CO'); }
+        function fmtDate(d) { return new Date(d).toLocaleDateString('es-CO', { year:'numeric', month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }); }
+
+        async function apiFetch(url, opts) {
+            const res = await fetch(API + url, { ...opts, headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', ...(opts?.headers || {}) } });
+            if (res.status === 401) { localStorage.clear(); window.location.href = '/login.html'; }
+            return res;
+        }
+
+        // Load stats
+        async function loadStats() {
+            const res = await apiFetch('/admin/stats');
+            const s = await res.json();
+            document.getElementById('sTotalOrders').textContent = s.totalOrders;
+            document.getElementById('sPending').textContent = s.pendingOrders;
+            document.getElementById('sClients').textContent = s.totalClients;
+            document.getElementById('sRevenue').textContent = fmtPrice(s.revenue);
+        }
+
+        // Load orders
+        let allOrders = [];
+        async function loadOrders() {
+            const res = await apiFetch('/orders');
+            allOrders = await res.json();
+            const tbody = document.getElementById('ordersBody');
+            if (!allOrders.length) {
+                tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><i class="fas fa-inbox"></i><p>No hay pedidos aun</p></div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = allOrders.map(o => `
+                <tr>
+                    <td><strong>#${o.id}</strong></td>
+                    <td>${o.client_name || 'N/A'}<br><small style="color:var(--tx3)">${o.client_email || ''}</small></td>
+                    <td><div class="garment-chips">${o.garments.map(g => `<span class="garment-chip"><span class="color-dot" style="background:${g.color}"></span>${g.type}</span>`).join('')}</div></td>
+                    <td><strong>${fmtPrice(o.total_price)}</strong></td>
+                    <td>
+                        <select class="status-select" onchange="updateStatus(${o.id}, this.value)">
+                            ${Object.entries(statusLabels).map(([k,v]) => `<option value="${k}" ${o.status===k?'selected':''}>${v}</option>`).join('')}
+                        </select>
+                    </td>
+                    <td><small>${fmtDate(o.created_at)}</small></td>
+                    <td>
+                        <div class="actions-cell">
+                            <button class="btn-icon" onclick="showOrderDetail(${o.id})" title="Ver detalle"><i class="fas fa-eye"></i></button>
+                            ${o.garments.map((g, i) => `<button class="btn-icon download" onclick="downloadPattern(${o.id}, ${i})" title="Patron ${g.type}"><i class="fas fa-cut"></i></button>`).join('')}
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Load clients
+        async function loadClients() {
+            const res = await apiFetch('/admin/clients');
+            const clients = await res.json();
+            const tbody = document.getElementById('clientsBody');
+            if (!clients.length) {
+                tbody.innerHTML = '<tr><td colspan="6"><div class="empty-state"><i class="fas fa-users"></i><p>No hay clientes registrados</p></div></td></tr>';
+                return;
+            }
+            tbody.innerHTML = clients.map(c => `
+                <tr>
+                    <td><strong>${c.name}</strong></td>
+                    <td>${c.email}</td>
+                    <td>${c.phone || '-'}</td>
+                    <td>${c.order_count}</td>
+                    <td>${fmtPrice(c.total_spent)}</td>
+                    <td><small>${fmtDate(c.created_at)}</small></td>
+                </tr>
+            `).join('');
+        }
+
+        async function updateStatus(orderId, status) {
+            await apiFetch(`/orders/${orderId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+            loadStats();
+        }
+
+        function showOrderDetail(orderId) {
+            const o = allOrders.find(x => x.id === orderId);
+            if (!o) return;
+            document.getElementById('modalOrderId').textContent = '#' + o.id;
+            const bp = o.body_params;
+            let html = `
+                <div class="detail-row"><span class="label">Cliente</span><span class="value">${o.client_name} (${o.client_email})</span></div>
+                <div class="detail-row"><span class="label">Telefono</span><span class="value">${o.client_phone || 'No registrado'}</span></div>
+                <div class="detail-row"><span class="label">Fecha</span><span class="value">${fmtDate(o.created_at)}</span></div>
+                <div class="detail-row"><span class="label">Estado</span><span class="value"><span class="badge ${o.status}">${statusLabels[o.status]}</span></span></div>
+                <div class="detail-row"><span class="label">Total</span><span class="value" style="color:var(--pl);font-weight:700">${fmtPrice(o.total_price)}</span></div>
+                <h4 style="margin:20px 0 10px;font-size:.85rem;color:var(--pl)"><i class="fas fa-ruler"></i> Medidas del Cliente</h4>
+                <div class="detail-row"><span class="label">Altura</span><span class="value">${bp.height} cm</span></div>
+                <div class="detail-row"><span class="label">Pecho</span><span class="value">${bp.chest} cm</span></div>
+                <div class="detail-row"><span class="label">Cintura</span><span class="value">${bp.waist} cm</span></div>
+                <div class="detail-row"><span class="label">Cadera</span><span class="value">${bp.hips} cm</span></div>
+                <div class="detail-row"><span class="label">Hombros</span><span class="value">${bp.shoulders} cm</span></div>
+                <div class="detail-row"><span class="label">Genero</span><span class="value">${bp.gender === 'female' ? 'Mujer' : 'Hombre'}</span></div>
+                <h4 style="margin:20px 0 10px;font-size:.85rem;color:var(--pl)"><i class="fas fa-tshirt"></i> Prendas (${o.garments.length})</h4>
+            `;
+            o.garments.forEach((g, i) => {
+                html += `
+                <div style="background:var(--bg3);border:1px solid var(--brd);border-radius:var(--rs);padding:14px;margin-bottom:8px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                        <strong style="font-size:.85rem">${g.type}</strong>
+                        <button class="btn-sm" onclick="downloadPattern(${o.id}, ${i})" style="font-size:.68rem"><i class="fas fa-cut"></i> Descargar Patron</button>
+                    </div>
+                    ${g.neckline ? `<div class="detail-row"><span class="label">Escote</span><span class="value">${g.neckline}</span></div>` : ''}
+                    ${g.sleeve ? `<div class="detail-row"><span class="label">Manga</span><span class="value">${g.sleeve}</span></div>` : ''}
+                    <div class="detail-row"><span class="label">Largo</span><span class="value">${g.length}</span></div>
+                    <div class="detail-row"><span class="label">Corte</span><span class="value">${g.fit}</span></div>
+                    ${g.waist ? `<div class="detail-row"><span class="label">Cintura</span><span class="value">${g.waist}</span></div>` : ''}
+                    <div class="detail-row"><span class="label">Textura</span><span class="value">${g.texture}</span></div>
+                    <div class="detail-row"><span class="label">Color</span><span class="value"><span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:${g.color};border:2px solid var(--brd);vertical-align:middle;margin-right:6px"></span>${g.color}</span></div>
+                </div>`;
+            });
+            if (o.notes) html += `<div class="detail-row"><span class="label">Notas</span><span class="value">${o.notes}</span></div>`;
+            document.getElementById('modalContent').innerHTML = html;
+            document.getElementById('orderModal').classList.add('open');
+        }
+
+        function downloadPattern(orderId, garmentIdx) {
+            window.open(`${API}/orders/${orderId}/pattern?garment=${garmentIdx}`, '_blank');
+        }
+
+        // Init
+        loadStats();
+        loadOrders();
+        loadClients();
+    </script>
+</body>
+</html>

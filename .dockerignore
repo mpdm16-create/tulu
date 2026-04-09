@@ -1,4 +1,5 @@
+node_modules
+data/*.db
 deploy.py
-Dockerfile
-.dockerignore
 .git
+.dockerignore

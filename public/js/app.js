@@ -111,6 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (model) model.onResize();
     });
 
+    // User auth UI
+    updateUserUI();
+
     // Start at step 0
     goToStep(0);
 });
@@ -379,8 +382,70 @@ function buildSummary() {
     document.getElementById('totalPrice').textContent = formatPrice(outfitPrice(model.garments));
 }
 
+// ===== USER AUTH STATE =====
+function getAuthToken() { return localStorage.getItem('tulu_token'); }
+function getUser() { try { return JSON.parse(localStorage.getItem('tulu_user') || 'null'); } catch { return null; } }
+
+function updateUserUI() {
+    const user = getUser();
+    const btn = document.getElementById('userBtn');
+    if (!btn) return;
+    if (user) {
+        btn.innerHTML = `<i class="fas fa-user-check" style="color:var(--pl)"></i>`;
+        btn.title = user.name + (user.role === 'admin' ? ' (Admin)' : '');
+        btn.onclick = () => {
+            if (user.role === 'admin') window.location.href = '/admin.html';
+            else if (confirm('Cerrar sesion?')) {
+                localStorage.removeItem('tulu_token');
+                localStorage.removeItem('tulu_user');
+                updateUserUI();
+                toast('Sesion cerrada');
+            }
+        };
+    } else {
+        btn.innerHTML = `<i class="fas fa-user"></i>`;
+        btn.title = 'Iniciar sesion';
+        btn.onclick = () => { window.location.href = '/login.html'; };
+    }
+}
+
 // ===== SUMMARY ACTIONS =====
 function initSummaryActions() {
+    // Place order via API
+    document.getElementById('btnOrder')?.addEventListener('click', async () => {
+        if (!model || !model.garments.length) { toast('Agrega al menos una prenda'); return; }
+        const token = getAuthToken();
+        if (!token) { window.location.href = '/login.html'; return; }
+        const btn = document.getElementById('btnOrder');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
+        try {
+            const screenshot = model.takeScreenshot();
+            const res = await fetch('/api/orders', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({
+                    garments: model.garments,
+                    bodyParams: model.params,
+                    totalPrice: outfitPrice(model.garments),
+                    screenshot: screenshot
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            toast('Pedido #' + data.id + ' creado exitosamente!');
+            btn.innerHTML = '<i class="fas fa-check"></i> Pedido Enviado';
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Hacer Pedido';
+            }, 3000);
+        } catch (err) {
+            toast('Error: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Hacer Pedido';
+        }
+    });
+
     document.getElementById('btnWhatsApp')?.addEventListener('click', () => {
         if (!model || !model.garments.length) return;
         const msg = buildOrderMessage();
