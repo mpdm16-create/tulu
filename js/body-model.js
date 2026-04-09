@@ -17,12 +17,15 @@ class BodyModel {
         this.camera = new THREE.PerspectiveCamera(42, a, 0.1, 100);
         this.camera.position.set(0, 1.0, 3.8);
 
-        this.renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+        this.renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true, powerPreference:'high-performance' });
         this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-        this.renderer.toneMappingExposure = 1.1;
+        this.renderer.toneMappingExposure = 1.15;
+        this.renderer.physicallyCorrectLights = true;
+        this.renderer.outputEncoding = THREE.sRGBEncoding;
         this.container.appendChild(this.renderer.domElement);
 
         this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
@@ -86,6 +89,72 @@ class BodyModel {
         const m = new THREE.Mesh(geo, mat);
         m.position.y = yOff; m.scale.set(sX || 1, 1, sZ || 1); m.castShadow = true;
         return m;
+    }
+
+    // Apply wrinkles, gravity drape and organic noise to garment geometry
+    applyFabricDeformation(geo, opts) {
+        const {
+            wrinkleAmount = 0.003,   // intensity of wrinkles
+            gravityAmount = 0.0,     // how much loose fabric sags
+            noiseAmount = 0.001,     // organic surface noise
+            stressPoints = [],       // [{y, intensity}] where wrinkles concentrate (elbows, waist)
+            fitType = 'regular',
+            minY = -Infinity,        // only deform within Y range
+            maxY = Infinity
+        } = opts || {};
+
+        const pos = geo.attributes.position;
+        const fitMultiplier = fitType === 'tight' ? 0.3 : fitType === 'loose' ? 1.6 : fitType === 'flared' ? 1.3 : 1.0;
+
+        for (let i = 0; i < pos.count; i++) {
+            let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+            if (y < minY || y > maxY) continue;
+
+            const r = Math.sqrt(x * x + z * z);
+            if (r < 0.001) continue;
+            const angle = Math.atan2(z, x);
+
+            // 1. Organic surface noise - nothing in real fabric is perfectly smooth
+            const n = noise2D(angle * 3 + y * 40, y * 30) * noiseAmount * fitMultiplier;
+            x += Math.cos(angle) * n;
+            z += Math.sin(angle) * n;
+
+            // 2. Wrinkles - concentrated at stress points
+            let wrinkle = 0;
+            // Procedural wrinkles based on position
+            wrinkle += Math.sin(angle * 8 + y * 25) * wrinkleAmount * 0.4;
+            wrinkle += Math.sin(angle * 13 + y * 40) * wrinkleAmount * 0.2;
+            wrinkle += fbm(angle * 2 + 10, y * 15, 3) * wrinkleAmount * 0.6;
+
+            // Extra wrinkles at stress points
+            for (const sp of stressPoints) {
+                const dist = Math.abs(y - sp.y);
+                if (dist < 0.05) {
+                    const factor = (1 - dist / 0.05) * sp.intensity;
+                    wrinkle += Math.sin(angle * 12 + sp.y * 50) * wrinkleAmount * factor * 2;
+                }
+            }
+
+            wrinkle *= fitMultiplier;
+            x += Math.cos(angle) * wrinkle;
+            z += Math.sin(angle) * wrinkle;
+
+            // 3. Gravity drape - fabric sags between support points
+            if (gravityAmount > 0) {
+                const sag = gravityAmount * Math.sin(angle * 2) * 0.5;
+                y -= Math.abs(sag) * fitMultiplier;
+                // Loose areas droop outward slightly
+                const droop = gravityAmount * 0.3 * fitMultiplier;
+                x += Math.cos(angle) * droop * Math.sin(y * 10);
+                z += Math.sin(angle) * droop * Math.sin(y * 10);
+            }
+
+            pos.setX(i, x);
+            pos.setY(i, y);
+            pos.setZ(i, z);
+        }
+
+        geo.computeVertexNormals();
     }
 
     // Create asymmetric torso mesh: wider front (chest) narrower back, with anatomical shaping
@@ -480,6 +549,20 @@ class BodyModel {
                 chestBulge: isFem ? 0.12 * chF : 0
             });
             torso.scale.z = tZ;
+
+            // Apply fabric deformation to torso
+            this.applyFabricDeformation(torso.geometry, {
+                wrinkleAmount: 0.002 * S,
+                gravityAmount: isDress ? 0.003 * S : 0.001 * S,
+                noiseAmount: 0.0008 * S,
+                fitType: g.fit,
+                stressPoints: [
+                    { y: 0.5 * S, intensity: 0.8 },   // waist area wrinkles
+                    { y: 0.35 * S, intensity: 0.5 },   // below waist
+                    { y: 0.15 * S, intensity: 0.4 },   // hip area
+                ]
+            });
+
             this.garmentGroup.add(torso);
 
             // Hem line (dobladillo)
@@ -844,6 +927,19 @@ class BodyModel {
 
                 const skirt = this.lathe(sp, mat, hemY + 0.05);
                 skirt.scale.z = tZ;
+
+                // Fabric deformation for skirt - gravity drape and flow
+                this.applyFabricDeformation(skirt.geometry, {
+                    wrinkleAmount: 0.003 * S,
+                    gravityAmount: g.fit === 'tight' ? 0.001 * S : 0.005 * S,
+                    noiseAmount: 0.001 * S,
+                    fitType: g.fit,
+                    stressPoints: [
+                        { y: skirtH * 0.9, intensity: 0.6 },  // near waist
+                        { y: skirtH * 0.1, intensity: 0.3 },  // near hem
+                    ]
+                });
+
                 this.garmentGroup.add(skirt);
 
                 // Hem
@@ -869,6 +965,17 @@ class BodyModel {
                 yokePts.push([0.001, 0]);
                 const yoke = this.lathe(yokePts, mat, crotchY + 0.05);
                 yoke.scale.z = tZ;
+
+                // Subtle wrinkles on hip yoke area
+                this.applyFabricDeformation(yoke.geometry, {
+                    wrinkleAmount: 0.0015 * S,
+                    noiseAmount: 0.0005 * S,
+                    fitType: g.fit,
+                    stressPoints: [
+                        { y: yokeH * 0.5, intensity: 0.6 },
+                    ]
+                });
+
                 this.garmentGroup.add(yoke);
 
                 // Individual legs (piernas)
@@ -922,6 +1029,20 @@ class BodyModel {
                     leg.position.x = side * 0.085 * S;
                     leg.scale.z = 0.88;
                     leg.castShadow = true;
+
+                    // Fabric deformation for pant legs
+                    this.applyFabricDeformation(leg.geometry, {
+                        wrinkleAmount: isLeggings ? 0.0008 * S : 0.002 * S,
+                        gravityAmount: g.fit === 'loose' ? 0.003 * S : 0.001 * S,
+                        noiseAmount: isLeggings ? 0.0003 * S : 0.0008 * S,
+                        fitType: g.fit,
+                        stressPoints: [
+                            { y: legH * 0.5, intensity: 0.9 },   // knee wrinkles
+                            { y: legH * 0.85, intensity: 0.5 },  // upper thigh
+                            { y: legH * 0.05, intensity: 0.4 },  // ankle bunching
+                        ]
+                    });
+
                     this.garmentGroup.add(leg);
 
                     // Leg hem
