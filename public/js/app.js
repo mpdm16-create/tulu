@@ -114,6 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // User auth UI
     updateUserUI();
 
+    // Check for saved design in URL
+    setTimeout(checkSavedDesign, 500);
+
     // Start at step 0
     goToStep(0);
 });
@@ -389,24 +392,77 @@ function getUser() { try { return JSON.parse(localStorage.getItem('tulu_user') |
 function updateUserUI() {
     const user = getUser();
     const btn = document.getElementById('userBtn');
+    const notifBtn = document.getElementById('notifBtn');
     if (!btn) return;
     if (user) {
         btn.innerHTML = `<i class="fas fa-user-check" style="color:var(--pl)"></i>`;
-        btn.title = user.name + (user.role === 'admin' ? ' (Admin)' : '');
+        btn.title = user.name;
         btn.onclick = () => {
             if (user.role === 'admin') window.location.href = '/admin.html';
-            else if (confirm('Cerrar sesion?')) {
-                localStorage.removeItem('tulu_token');
-                localStorage.removeItem('tulu_user');
-                updateUserUI();
-                toast('Sesion cerrada');
-            }
+            else window.location.href = '/orders.html';
         };
+        // Show notifications bell
+        if (notifBtn) {
+            notifBtn.style.display = '';
+            notifBtn.onclick = () => window.location.href = '/orders.html';
+            pollNotifications();
+        }
     } else {
         btn.innerHTML = `<i class="fas fa-user"></i>`;
         btn.title = 'Iniciar sesion';
         btn.onclick = () => { window.location.href = '/login.html'; };
+        if (notifBtn) notifBtn.style.display = 'none';
     }
+}
+
+async function pollNotifications() {
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+        const res = await fetch('/api/notifications/unread-count', { headers: { 'Authorization': 'Bearer ' + token } });
+        const data = await res.json();
+        const badge = document.getElementById('notifBadge');
+        if (badge && data.count > 0) {
+            badge.textContent = data.count;
+            badge.style.display = '';
+        } else if (badge) {
+            badge.style.display = 'none';
+        }
+    } catch(e) {}
+    // Poll every 30s
+    setTimeout(pollNotifications, 30000);
+}
+
+// Load saved design from URL param
+function checkSavedDesign() {
+    const params = new URLSearchParams(window.location.search);
+    const designId = params.get('design');
+    if (!designId) return;
+    const token = getAuthToken();
+    if (!token) return;
+    fetch('/api/designs', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(r => r.json())
+        .then(designs => {
+            const d = designs.find(x => x.id === parseInt(designId));
+            if (!d || !model) return;
+            // Restore body params
+            Object.keys(d.body_params).forEach(k => { model.params[k] = d.body_params[k]; });
+            model.buildBody();
+            // Restore garments
+            model.garments = d.garments;
+            model.buildAllGarments();
+            renderLayers();
+            toast('Diseno cargado!');
+            // Update sliders to match
+            const sliderMap = {height:'sH',chest:'sC',waist:'sW',hips:'sHip',shoulders:'sSh'};
+            const valMap = {height:'vH',chest:'vC',waist:'vW',hips:'vHip',shoulders:'vSh'};
+            Object.entries(sliderMap).forEach(([k,s]) => {
+                const el = document.getElementById(s);
+                if (el) el.value = d.body_params[k] || el.value;
+                const vel = document.getElementById(valMap[k]);
+                if (vel) vel.textContent = d.body_params[k] || vel.textContent;
+            });
+        }).catch(() => {});
 }
 
 // ===== SUMMARY ACTIONS =====
@@ -444,6 +500,25 @@ function initSummaryActions() {
             btn.disabled = false;
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> Hacer Pedido';
         }
+    });
+
+    // Save design
+    document.getElementById('btnSaveDesign')?.addEventListener('click', async () => {
+        if (!model || !model.garments.length) { toast('Agrega al menos una prenda'); return; }
+        const token = getAuthToken();
+        if (!token) { window.location.href = '/login.html'; return; }
+        const name = prompt('Nombre del diseño:', 'Mi Outfit') || 'Mi Outfit';
+        try {
+            const screenshot = model.takeScreenshot();
+            const res = await fetch('/api/designs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+                body: JSON.stringify({ name, garments: model.garments, bodyParams: model.params, screenshot })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            toast('Diseño guardado!');
+        } catch (err) { toast('Error: ' + err.message); }
     });
 
     document.getElementById('btnWhatsApp')?.addEventListener('click', () => {

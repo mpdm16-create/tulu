@@ -45,6 +45,18 @@ async function setupDB() {
         body_params TEXT NOT NULL, total_price INTEGER DEFAULT 0, status TEXT DEFAULT 'pending',
         notes TEXT, screenshot TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id))`);
+    db.run(`CREATE TABLE IF NOT EXISTS notifications (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, type TEXT DEFAULT 'status_change',
+        message TEXT NOT NULL, order_id INTEGER, is_read INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))`);
+    db.run(`CREATE TABLE IF NOT EXISTS saved_designs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, name TEXT DEFAULT 'Mi Diseno',
+        garments TEXT NOT NULL, body_params TEXT NOT NULL, screenshot TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id))`);
+    db.run(`CREATE TABLE IF NOT EXISTS order_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+        message TEXT NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (order_id) REFERENCES orders(id), FOREIGN KEY (user_id) REFERENCES users(id))`);
 
     const adminExists = dbGet('SELECT id FROM users WHERE email = ?', ['admin@tulu.com']);
     if (!adminExists) {
@@ -130,12 +142,87 @@ app.get('/api/orders', auth, (req, res) => {
     res.json(orders);
 });
 
+app.get('/api/orders/:id', auth, (req, res) => {
+    const order = dbGet('SELECT * FROM orders WHERE id = ?', [parseInt(req.params.id)]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (req.user.role !== 'admin' && order.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+    order.garments = JSON.parse(order.garments);
+    order.body_params = JSON.parse(order.body_params);
+    res.json(order);
+});
+
 app.patch('/api/orders/:id/status', auth, adminOnly, (req, res) => {
     const { status } = req.body;
     const validStatuses = ['pending', 'confirmed', 'in_production', 'ready', 'delivered', 'cancelled'];
     if (!validStatuses.includes(status)) return res.status(400).json({ error: 'Estado invalido' });
     dbRun('UPDATE orders SET status = ? WHERE id = ?', [status, parseInt(req.params.id)]);
+    // Create notification for client
+    const order = dbGet('SELECT user_id FROM orders WHERE id = ?', [parseInt(req.params.id)]);
+    if (order) {
+        const labels = { pending:'Pendiente', confirmed:'Confirmado', in_production:'En Produccion', ready:'Listo', delivered:'Entregado', cancelled:'Cancelado' };
+        dbRun('INSERT INTO notifications (user_id, type, message, order_id) VALUES (?, ?, ?, ?)',
+            [order.user_id, 'status_change', `Tu pedido #${req.params.id} cambio a: ${labels[status]}`, parseInt(req.params.id)]);
+    }
     res.json({ message: 'Estado actualizado' });
+});
+
+// ===== NOTIFICATIONS =====
+app.get('/api/notifications', auth, (req, res) => {
+    res.json(dbAll('SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50', [req.user.id]));
+});
+app.get('/api/notifications/unread-count', auth, (req, res) => {
+    const r = dbGet('SELECT COUNT(*) as count FROM notifications WHERE user_id = ? AND is_read = 0', [req.user.id]);
+    res.json({ count: r?.count || 0 });
+});
+app.post('/api/notifications/read-all', auth, (req, res) => {
+    dbRun('UPDATE notifications SET is_read = 1 WHERE user_id = ?', [req.user.id]);
+    res.json({ message: 'ok' });
+});
+
+// ===== SAVED DESIGNS =====
+app.post('/api/designs', auth, (req, res) => {
+    const { name, garments, bodyParams, screenshot } = req.body;
+    if (!garments || !bodyParams) return res.status(400).json({ error: 'Datos incompletos' });
+    dbRun('INSERT INTO saved_designs (user_id, name, garments, body_params, screenshot) VALUES (?, ?, ?, ?, ?)',
+        [req.user.id, name || 'Mi Diseno', JSON.stringify(garments), JSON.stringify(bodyParams), screenshot || null]);
+    const last = dbGet('SELECT last_insert_rowid() as id');
+    res.json({ id: last.id, message: 'Diseno guardado' });
+});
+app.get('/api/designs', auth, (req, res) => {
+    const designs = dbAll('SELECT * FROM saved_designs WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+    designs.forEach(d => { d.garments = JSON.parse(d.garments); d.body_params = JSON.parse(d.body_params); });
+    res.json(designs);
+});
+app.delete('/api/designs/:id', auth, (req, res) => {
+    const d = dbGet('SELECT user_id FROM saved_designs WHERE id = ?', [parseInt(req.params.id)]);
+    if (!d || d.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+    dbRun('DELETE FROM saved_designs WHERE id = ?', [parseInt(req.params.id)]);
+    res.json({ message: 'Eliminado' });
+});
+
+// ===== ORDER COMMENTS =====
+app.get('/api/orders/:id/comments', auth, (req, res) => {
+    const order = dbGet('SELECT user_id FROM orders WHERE id = ?', [parseInt(req.params.id)]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (req.user.role !== 'admin' && order.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+    const comments = dbAll(`SELECT c.*, u.name as author_name, u.role as author_role
+        FROM order_comments c JOIN users u ON c.user_id = u.id WHERE c.order_id = ? ORDER BY c.created_at ASC`, [parseInt(req.params.id)]);
+    res.json(comments);
+});
+app.post('/api/orders/:id/comments', auth, (req, res) => {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ error: 'Mensaje requerido' });
+    const order = dbGet('SELECT user_id FROM orders WHERE id = ?', [parseInt(req.params.id)]);
+    if (!order) return res.status(404).json({ error: 'Pedido no encontrado' });
+    if (req.user.role !== 'admin' && order.user_id !== req.user.id) return res.status(403).json({ error: 'No autorizado' });
+    dbRun('INSERT INTO order_comments (order_id, user_id, message) VALUES (?, ?, ?)', [parseInt(req.params.id), req.user.id, message]);
+    // Notify the other party
+    const notifyUserId = req.user.role === 'admin' ? order.user_id : dbGet("SELECT id FROM users WHERE role = 'admin' LIMIT 1")?.id;
+    if (notifyUserId) {
+        dbRun('INSERT INTO notifications (user_id, type, message, order_id) VALUES (?, ?, ?, ?)',
+            [notifyUserId, 'comment', `Nuevo mensaje en pedido #${req.params.id}`, parseInt(req.params.id)]);
+    }
+    res.json({ message: 'Comentario agregado' });
 });
 
 // ===== PATTERN GENERATION (SVG) =====

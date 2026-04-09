@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TULU - Mis Pedidos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root{--p:#7C3AED;--pl:#A78BFA;--pd:#5B21B6;--acc:#F43F5E;--bg:#08080F;--bg2:#0F0F1C;--bg3:#171730;--bg4:#222244;--tx:#fff;--tx2:#C4C4D8;--tx3:#7777A0;--brd:rgba(255,255,255,.06);--r:14px;--rs:8px}
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{min-height:100vh;font-family:'Poppins',sans-serif;background:var(--bg);color:var(--tx)}
+        .header{background:var(--bg2);border-bottom:1px solid var(--brd);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+        .header .logo{font-size:1.1rem;font-weight:800;letter-spacing:2px;background:linear-gradient(135deg,var(--p),var(--acc));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .header-actions{display:flex;gap:10px;align-items:center}
+        .btn-sm{padding:8px 14px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--rs);color:var(--tx3);font-size:.72rem;font-weight:600;font-family:inherit;cursor:pointer;transition:all .3s;display:flex;align-items:center;gap:6px;text-decoration:none}
+        .btn-sm:hover{border-color:var(--p);color:var(--pl)}
+        .main{padding:24px;max-width:900px;margin:0 auto}
+        h2{font-size:1.2rem;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+        h2 i{color:var(--pl)}
+
+        /* Tabs */
+        .tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--bg2);border-radius:var(--rs);padding:4px;width:fit-content}
+        .tab{padding:10px 20px;background:none;border:none;color:var(--tx3);font-size:.8rem;font-weight:600;font-family:inherit;cursor:pointer;border-radius:6px;transition:all .3s;display:flex;align-items:center;gap:6px}
+        .tab.active{background:var(--p);color:#fff}
+        .tab-panel{display:none}
+        .tab-panel.active{display:block}
+
+        /* Notification bar */
+        .notif-bar{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);padding:16px;margin-bottom:20px;display:none}
+        .notif-bar.has-notifs{display:block}
+        .notif-bar h4{font-size:.82rem;color:var(--pl);margin-bottom:10px;display:flex;align-items:center;gap:6px;justify-content:space-between}
+        .notif-item{padding:8px 12px;background:var(--bg3);border-radius:var(--rs);margin-bottom:6px;font-size:.78rem;color:var(--tx2);display:flex;align-items:center;gap:10px;border-left:3px solid var(--p)}
+        .notif-item.unread{border-left-color:var(--acc);background:rgba(244,63,94,.05)}
+        .notif-item small{color:var(--tx3);white-space:nowrap}
+        .notif-item span{flex:1}
+        .btn-link{background:none;border:none;color:var(--pl);font-size:.7rem;font-family:inherit;cursor:pointer;padding:0}
+
+        /* Order cards */
+        .order-card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);padding:20px;margin-bottom:14px;transition:all .3s;cursor:pointer}
+        .order-card:hover{border-color:var(--brd);transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+        .order-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+        .order-id{font-weight:700;font-size:.92rem}
+        .order-date{font-size:.7rem;color:var(--tx3)}
+        .badge{padding:4px 10px;border-radius:20px;font-size:.65rem;font-weight:600;display:inline-block}
+        .badge.pending{background:rgba(245,158,11,.15);color:#F59E0B}
+        .badge.confirmed{background:rgba(59,130,246,.15);color:#3B82F6}
+        .badge.in_production{background:rgba(124,58,237,.15);color:var(--pl)}
+        .badge.ready{background:rgba(22,163,74,.15);color:#16A34A}
+        .badge.delivered{background:rgba(22,163,74,.25);color:#16A34A}
+        .badge.cancelled{background:rgba(244,63,94,.15);color:var(--acc)}
+        .order-garments{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+        .g-chip{padding:5px 10px;background:var(--bg3);border-radius:var(--rs);font-size:.72rem;display:flex;align-items:center;gap:5px}
+        .g-chip .dot{width:10px;height:10px;border-radius:50%;border:1px solid var(--brd)}
+        .order-bottom{display:flex;justify-content:space-between;align-items:center}
+        .order-price{font-weight:700;font-size:1rem;background:linear-gradient(135deg,var(--p),var(--acc));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+        .order-screenshot{width:60px;height:60px;border-radius:var(--rs);background:var(--bg3);overflow:hidden;flex-shrink:0}
+        .order-screenshot img{width:100%;height:100%;object-fit:cover}
+
+        /* Order detail (expanded) */
+        .order-detail{display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--brd)}
+        .order-card.expanded .order-detail{display:block}
+        .detail-row{display:flex;justify-content:space-between;padding:6px 0;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.03)}
+        .detail-row .label{color:var(--tx3)}
+        .detail-row .value{font-weight:500}
+        .garment-detail{background:var(--bg3);border:1px solid var(--brd);border-radius:var(--rs);padding:12px;margin:8px 0}
+        .garment-detail h5{font-size:.82rem;margin-bottom:8px;color:var(--pl)}
+
+        /* Comments */
+        .comments-section{margin-top:16px;padding-top:12px;border-top:1px solid var(--brd)}
+        .comments-section h5{font-size:.78rem;color:var(--tx3);margin-bottom:10px}
+        .comment{padding:8px 12px;border-radius:var(--rs);margin-bottom:6px;font-size:.78rem}
+        .comment.client{background:rgba(124,58,237,.1);border-left:3px solid var(--p)}
+        .comment.admin{background:rgba(244,63,94,.08);border-left:3px solid var(--acc)}
+        .comment .author{font-weight:600;font-size:.7rem;color:var(--pl);margin-bottom:2px}
+        .comment .time{font-size:.62rem;color:var(--tx3);float:right}
+        .comment-form{display:flex;gap:8px;margin-top:10px}
+        .comment-form input{flex:1;padding:10px 14px;background:var(--bg3);border:1px solid var(--brd);border-radius:var(--rs);color:var(--tx);font-size:.8rem;font-family:inherit;outline:none}
+        .comment-form input:focus{border-color:var(--p)}
+        .comment-form button{padding:10px 16px;background:var(--p);border:none;border-radius:var(--rs);color:#fff;font-size:.78rem;font-family:inherit;cursor:pointer}
+
+        /* Saved designs */
+        .designs-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+        .design-card{background:var(--bg2);border:1px solid var(--brd);border-radius:var(--r);overflow:hidden;transition:all .3s}
+        .design-card:hover{border-color:var(--brd);box-shadow:0 4px 20px rgba(0,0,0,.3)}
+        .design-thumb{height:140px;background:var(--bg3);overflow:hidden}
+        .design-thumb img{width:100%;height:100%;object-fit:cover}
+        .design-info{padding:14px}
+        .design-name{font-weight:600;font-size:.85rem;margin-bottom:4px}
+        .design-meta{font-size:.7rem;color:var(--tx3);margin-bottom:10px}
+        .design-actions{display:flex;gap:6px}
+        .design-actions button{flex:1;padding:8px;border-radius:var(--rs);font-size:.72rem;font-weight:600;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;transition:all .3s}
+        .btn-load{background:var(--p);border:none;color:#fff}
+        .btn-load:hover{background:var(--pd)}
+        .btn-del{background:none;border:1px solid var(--brd);color:var(--tx3)}
+        .btn-del:hover{border-color:var(--acc);color:var(--acc)}
+
+        .empty{text-align:center;padding:50px 20px;color:var(--tx3)}
+        .empty i{font-size:2.5rem;opacity:.2;display:block;margin-bottom:10px}
+
+        @media(max-width:768px){
+            .main{padding:16px}
+            .header{padding:10px 14px}
+            .tabs{width:100%;overflow-x:auto}
+            .tab{white-space:nowrap;font-size:.72rem;padding:8px 14px}
+            .order-top{flex-direction:column;align-items:flex-start;gap:6px}
+            .designs-grid{grid-template-columns:1fr}
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <span class="logo"><i class="fas fa-tshirt"></i> TULU</span>
+        <div class="header-actions">
+            <span id="userName" style="color:var(--tx3);font-size:.78rem"></span>
+            <a href="/index.html" class="btn-sm"><i class="fas fa-palette"></i> Estudio</a>
+            <button class="btn-sm" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button>
+        </div>
+    </header>
+
+    <div class="main">
+        <!-- Notifications -->
+        <div class="notif-bar" id="notifBar">
+            <h4><span><i class="fas fa-bell"></i> Notificaciones</span><button class="btn-link" id="readAllBtn">Marcar todas leidas</button></h4>
+            <div id="notifList"></div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="orders"><i class="fas fa-shopping-bag"></i> Mis Pedidos</button>
+            <button class="tab" data-tab="designs"><i class="fas fa-heart"></i> Diseños Guardados</button>
+        </div>
+
+        <div class="tab-panel active" id="ordersTab">
+            <div id="ordersList"></div>
+        </div>
+
+        <div class="tab-panel" id="designsTab">
+            <div class="designs-grid" id="designsGrid"></div>
+        </div>
+    </div>
+
+    <script>
+        const API = window.location.origin + '/api';
+        const token = localStorage.getItem('tulu_token');
+        const user = JSON.parse(localStorage.getItem('tulu_user') || '{}');
+        if (!token) window.location.href = '/login.html';
+        if (user.role === 'admin') window.location.href = '/admin.html';
+
+        document.getElementById('userName').textContent = user.name || '';
+        document.getElementById('logoutBtn').addEventListener('click', () => {
+            localStorage.removeItem('tulu_token'); localStorage.removeItem('tulu_user');
+            window.location.href = '/login.html';
+        });
+
+        // Tabs
+        document.querySelectorAll('.tab').forEach(t => {
+            t.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+                document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+                t.classList.add('active');
+                document.getElementById(t.dataset.tab + 'Tab').classList.add('active');
+            });
+        });
+
+        const statusLabels = {pending:'Pendiente',confirmed:'Confirmado',in_production:'En Produccion',ready:'Listo',delivered:'Entregado',cancelled:'Cancelado'};
+        const fmtPrice = n => '$' + (n||0).toLocaleString('es-CO');
+        const fmtDate = d => new Date(d).toLocaleDateString('es-CO',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+        const hdr = () => ({ 'Authorization':'Bearer '+token, 'Content-Type':'application/json' });
+
+        // ===== NOTIFICATIONS =====
+        async function loadNotifications() {
+            const res = await fetch(API+'/notifications',{headers:hdr()});
+            const notifs = await res.json();
+            const bar = document.getElementById('notifBar');
+            const unread = notifs.filter(n => !n.is_read);
+            if (notifs.length === 0) { bar.classList.remove('has-notifs'); return; }
+            bar.classList.add('has-notifs');
+            document.getElementById('notifList').innerHTML = notifs.slice(0,8).map(n =>
+                `<div class="notif-item ${n.is_read?'':'unread'}"><i class="fas ${n.type==='comment'?'fa-comment':'fa-bell'}" style="color:var(--pl);font-size:.7rem"></i><span>${n.message}</span><small>${fmtDate(n.created_at)}</small></div>`
+            ).join('');
+        }
+        document.getElementById('readAllBtn').addEventListener('click', async () => {
+            await fetch(API+'/notifications/read-all',{method:'POST',headers:hdr()});
+            loadNotifications();
+        });
+
+        // ===== ORDERS =====
+        async function loadOrders() {
+            const res = await fetch(API+'/orders',{headers:hdr()});
+            const orders = await res.json();
+            const el = document.getElementById('ordersList');
+            if (!orders.length) { el.innerHTML = '<div class="empty"><i class="fas fa-shopping-bag"></i><p>No tienes pedidos aun.<br>Diseña tu outfit y haz tu primer pedido!</p></div>'; return; }
+            el.innerHTML = orders.map(o => `
+                <div class="order-card" data-id="${o.id}" onclick="toggleOrder(this)">
+                    <div class="order-top">
+                        <div><span class="order-id">Pedido #${o.id}</span> <span class="badge ${o.status}">${statusLabels[o.status]}</span></div>
+                        <span class="order-date">${fmtDate(o.created_at)}</span>
+                    </div>
+                    <div class="order-garments">${o.garments.map(g=>`<span class="g-chip"><span class="dot" style="background:${g.color}"></span>${g.type}</span>`).join('')}</div>
+                    <div class="order-bottom">
+                        <span class="order-price">${fmtPrice(o.total_price)}</span>
+                        ${o.screenshot?`<div class="order-screenshot"><img src="${o.screenshot}" alt=""></div>`:''}
+                    </div>
+                    <div class="order-detail">
+                        <div class="detail-row"><span class="label">Altura</span><span class="value">${o.body_params.height}cm</span></div>
+                        <div class="detail-row"><span class="label">Pecho</span><span class="value">${o.body_params.chest}cm</span></div>
+                        <div class="detail-row"><span class="label">Cintura</span><span class="value">${o.body_params.waist}cm</span></div>
+                        <div class="detail-row"><span class="label">Cadera</span><span class="value">${o.body_params.hips}cm</span></div>
+                        ${o.garments.map(g=>`
+                            <div class="garment-detail">
+                                <h5>${g.type}</h5>
+                                ${g.neckline?`<div class="detail-row"><span class="label">Escote</span><span class="value">${g.neckline}</span></div>`:''}
+                                ${g.sleeve?`<div class="detail-row"><span class="label">Manga</span><span class="value">${g.sleeve}</span></div>`:''}
+                                <div class="detail-row"><span class="label">Largo</span><span class="value">${g.length}</span></div>
+                                <div class="detail-row"><span class="label">Corte</span><span class="value">${g.fit}</span></div>
+                                <div class="detail-row"><span class="label">Color</span><span class="value"><span class="dot" style="background:${g.color};display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle;margin-right:4px"></span>${g.color}</span></div>
+                            </div>
+                        `).join('')}
+                        <div class="comments-section" id="comments-${o.id}">
+                            <h5><i class="fas fa-comments"></i> Mensajes</h5>
+                            <div id="commentsList-${o.id}"></div>
+                            <div class="comment-form">
+                                <input type="text" placeholder="Escribe un mensaje..." id="commentInput-${o.id}" onkeydown="if(event.key==='Enter')sendComment(${o.id})">
+                                <button onclick="sendComment(${o.id})"><i class="fas fa-paper-plane"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function toggleOrder(card) {
+            const wasExpanded = card.classList.contains('expanded');
+            document.querySelectorAll('.order-card').forEach(c => c.classList.remove('expanded'));
+            if (!wasExpanded) {
+                card.classList.add('expanded');
+                loadComments(card.dataset.id);
+            }
+        }
+
+        async function loadComments(orderId) {
+            const res = await fetch(API+'/orders/'+orderId+'/comments',{headers:hdr()});
+            const comments = await res.json();
+            document.getElementById('commentsList-'+orderId).innerHTML = comments.length ?
+                comments.map(c => `<div class="comment ${c.author_role}"><span class="time">${fmtDate(c.created_at)}</span><div class="author">${c.author_name}</div>${c.message}</div>`).join('')
+                : '<p style="font-size:.72rem;color:var(--tx3);padding:8px 0">Sin mensajes aun</p>';
+        }
+
+        async function sendComment(orderId) {
+            const input = document.getElementById('commentInput-'+orderId);
+            const msg = input.value.trim();
+            if (!msg) return;
+            await fetch(API+'/orders/'+orderId+'/comments',{method:'POST',headers:hdr(),body:JSON.stringify({message:msg})});
+            input.value = '';
+            loadComments(orderId);
+        }
+
+        // ===== SAVED DESIGNS =====
+        async function loadDesigns() {
+            const res = await fetch(API+'/designs',{headers:hdr()});
+            const designs = await res.json();
+            const el = document.getElementById('designsGrid');
+            if (!designs.length) { el.innerHTML = '<div class="empty"><i class="fas fa-heart"></i><p>No tienes diseños guardados.<br>Guarda tus outfits favoritos desde el estudio!</p></div>'; return; }
+            el.innerHTML = designs.map(d => `
+                <div class="design-card">
+                    <div class="design-thumb">${d.screenshot?`<img src="${d.screenshot}" alt="">`:'<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--tx3)"><i class="fas fa-tshirt" style="font-size:2rem;opacity:.3"></i></div>'}</div>
+                    <div class="design-info">
+                        <div class="design-name">${d.name}</div>
+                        <div class="design-meta">${d.garments.length} prenda(s) | ${fmtDate(d.created_at)}</div>
+                        <div class="design-actions">
+                            <button class="btn-load" onclick="loadDesign(${d.id})"><i class="fas fa-palette"></i> Cargar</button>
+                            <button class="btn-del" onclick="deleteDesign(${d.id})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function loadDesign(id) { window.location.href = '/index.html?design=' + id; }
+
+        async function deleteDesign(id) {
+            if (!confirm('Eliminar este diseno?')) return;
+            await fetch(API+'/designs/'+id,{method:'DELETE',headers:hdr()});
+            loadDesigns();
+        }
+
+        // Init
+        loadNotifications();
+        loadOrders();
+        loadDesigns();
+    </script>
+</body>
+</html>
