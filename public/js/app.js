@@ -316,8 +316,8 @@ function bindConstructorEvents() {
             const val = btn.dataset.val;
             g[key] = val;
             model.buildAllGarments();
+            if (model.highlightZone) model.highlightZone(key);
             renderLayers();
-            // Update active state
             btn.closest('.con-options').querySelectorAll('.con-opt').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
         });
@@ -328,6 +328,7 @@ function bindConstructorEvents() {
         btn.addEventListener('click', () => {
             g.color = btn.dataset.color;
             model.buildAllGarments();
+            if (model.highlightZone) model.highlightZone('color');
             renderLayers();
             document.querySelectorAll('.con-clr').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');

@@ -156,53 +156,99 @@ class BodyModel {
         geo.computeVertexNormals();
     }
 
-    // Create asymmetric torso mesh: wider front (chest) narrower back, with anatomical shaping
+    // Create garment torso with flat panel look (not a tube)
+    // Heavily flattens the lathe and adds seam edges for a "sewn fabric" appearance
     createTorsoGarment(profile, mat, yOff, params) {
         const { frontScale, backScale, sideScale, isFem, chestBulge } = params;
         const pts = profile.map(p => new THREE.Vector2(p[0], p[1]));
-        const segments = 48;
+        const segments = 64; // More segments for smoother flattening
         const geo = new THREE.LatheGeometry(pts, segments);
         const pos = geo.attributes.position;
 
-        // Deform vertices for anatomical shape
+        const totalH = profile[0][1] - profile[profile.length - 2][1];
+
         for (let i = 0; i < pos.count; i++) {
-            const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+            let x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
             const angle = Math.atan2(z, x);
             const r = Math.sqrt(x * x + z * z);
+            if (r < 0.001) continue;
 
-            // Determine front (z>0) vs back (z<0) vs side
-            const frontness = Math.max(0, Math.cos(angle - Math.PI / 2));  // front = z positive
-            const backness = Math.max(0, Math.cos(angle + Math.PI / 2));
-            const sideness = Math.abs(Math.sin(angle));
+            const frontness = Math.max(0, z / r);   // how much this vertex faces front
+            const backness = Math.max(0, -z / r);
+            const sideness = Math.abs(x / r);
 
-            // Scale based on position
+            // 1. AGGRESSIVE FLATTENING - makes it look like flat panels, not a tube
+            // Front and back are flattened (like ironed fabric), sides are the seam edges
+            const flattenFront = 0.7; // 1=round, 0=completely flat
+            const flattenBack = 0.65;
+            if (frontness > 0.3) {
+                z *= this.lerp(1, flattenFront, (frontness - 0.3) / 0.7);
+            }
+            if (backness > 0.3) {
+                z *= this.lerp(1, flattenBack, (backness - 0.3) / 0.7);
+            }
+
+            // 2. Side seam pinch - creates visible edge where front meets back
+            if (sideness > 0.85) {
+                const pinch = (sideness - 0.85) / 0.15;
+                z *= (1 - pinch * 0.3); // pinch at sides
+                // Slight outward push for seam allowance
+                x *= (1 + pinch * 0.02);
+            }
+
+            // 3. Front/back scaling (front wider for bust)
             let scale = 1;
             scale += (frontScale - 1) * frontness;
             scale += (backScale - 1) * backness;
-            scale += (sideScale - 1) * sideness * 0.5;
 
-            // Bust area bulge for female tops
+            // 4. Bust shaping for female
             if (isFem && chestBulge > 0) {
-                const totalH = profile[0][1] - profile[profile.length - 2][1];
                 const relY = (y - profile[profile.length - 2][1]) / totalH;
-                if (relY > 0.6 && relY < 0.85 && frontness > 0.3) {
-                    const bustT = this.smoothstep(0.6, 0.72, relY) * (1 - this.smoothstep(0.72, 0.85, relY));
-                    const bustSide = Math.abs(Math.sin(angle)) * 0.7 + frontness * 0.5;
-                    scale += chestBulge * bustT * bustSide * frontness;
+                if (relY > 0.58 && relY < 0.82 && frontness > 0.2) {
+                    const bustT = this.smoothstep(0.58, 0.70, relY) * (1 - this.smoothstep(0.70, 0.82, relY));
+                    // Two distinct bust points (not centered)
+                    const bustAngle = Math.abs(angle - Math.PI / 2);
+                    const bustSide = Math.exp(-bustAngle * bustAngle * 4) * 0.6 + frontness * 0.4;
+                    const leftBust = Math.exp(-Math.pow(angle - 1.2, 2) * 5);
+                    const rightBust = Math.exp(-Math.pow(angle - 1.9, 2) * 5);
+                    const bustShape = (leftBust + rightBust) * 0.7 + frontness * 0.3;
+                    z += chestBulge * bustT * bustShape * 0.8;
+                    // Slight horizontal spread
+                    x *= 1 + chestBulge * bustT * bustShape * 0.15;
                 }
             }
 
-            // Flatten the sides slightly for non-circular cross section (real bodies aren't round)
-            const flattenSide = 1 - sideness * 0.08;
+            // 5. Subtle drape folds (vertical lines like hanging fabric)
+            const relY = (y - profile[profile.length - 2][1]) / totalH;
+            if (relY < 0.5) { // below waist area
+                const foldIntensity = (0.5 - relY) * 0.015;
+                const folds = Math.sin(angle * 6) * foldIntensity + Math.sin(angle * 10) * foldIntensity * 0.3;
+                x += Math.cos(angle) * folds;
+                z += Math.sin(angle) * folds;
+            }
 
-            pos.setX(i, x * scale * flattenSide);
-            pos.setZ(i, z * scale * flattenSide);
+            pos.setX(i, x * scale);
+            pos.setZ(i, z * scale);
         }
 
         geo.computeVertexNormals();
         const m = new THREE.Mesh(geo, mat);
         m.position.y = yOff; m.castShadow = true;
-        return m;
+
+        // Add visible side seam lines
+        const group = new THREE.Group();
+        group.add(m);
+        const seamLineMat = new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.25 });
+        [-1, 1].forEach(side => {
+            const seamPts = [];
+            for (let i = 0; i < profile.length - 1; i++) {
+                seamPts.push(new THREE.Vector3(side * profile[i][0] * (sideScale || 1), profile[i][1] + yOff, 0));
+            }
+            const seamGeo = new THREE.BufferGeometry().setFromPoints(seamPts);
+            group.add(new THREE.Line(seamGeo, seamLineMat));
+        });
+
+        return group;
     }
 
     // Create a seam line (visible stitch)
@@ -433,14 +479,140 @@ class BodyModel {
         this.bodyGroup.position.y = 0.05;
     }
 
+    // ===== PANEL-BASED GARMENT CONSTRUCTION =====
+    // Creates a flat fabric panel from a 2D silhouette path
+    createFabricPanel(points, mat, thickness) {
+        const th = thickness || 0.006;
+        const shape = new THREE.Shape();
+        shape.moveTo(points[0][0], points[0][1]);
+        for (let i = 1; i < points.length; i++) {
+            shape.lineTo(points[i][0], points[i][1]);
+        }
+        shape.lineTo(points[0][0], points[0][1]);
+
+        const geo = new THREE.ExtrudeGeometry(shape, {
+            depth: th, bevelEnabled: true, bevelThickness: th * 0.3,
+            bevelSize: th * 0.2, bevelSegments: 2, curveSegments: 12
+        });
+        const mesh = new THREE.Mesh(geo, mat);
+        mesh.castShadow = true;
+        return mesh;
+    }
+
+    // Build a garment body from front + back panels connected at sides
+    buildPanelGarment(params) {
+        const { widths, heights, depth, mat, seamMat, yBase, isFem, chF, fit, isDress } = params;
+        // widths = [{y, w}] array of width at each height
+        // depth = front-to-back half-depth
+        const group = new THREE.Group();
+
+        const segs = widths.length - 1;
+        const frontVerts = [], backVerts = [], leftVerts = [], rightVerts = [];
+
+        // Build vertex arrays for front and back panels
+        for (let i = 0; i < widths.length; i++) {
+            const { y, w } = widths[i];
+            const d = depth * (1 + (isFem && y > heights.chest && y < heights.waist ? 0.1 * chF : 0));
+            frontVerts.push([-w, y]); // left edge of front
+            frontVerts.unshift([w, y]); // right edge of front (reversed for correct winding)
+            backVerts.push([-w, y]);
+            backVerts.unshift([w, y]);
+        }
+
+        // Front panel
+        const frontShape = new THREE.Shape();
+        frontShape.moveTo(frontVerts[0][0], frontVerts[0][1]);
+        for (let i = 1; i < frontVerts.length; i++) {
+            frontShape.lineTo(frontVerts[i][0], frontVerts[i][1]);
+        }
+        const frontGeo = new THREE.ExtrudeGeometry(frontShape, {
+            depth: 0.005, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.001, bevelSegments: 1
+        });
+        const front = new THREE.Mesh(frontGeo, mat);
+        front.position.set(0, yBase, depth);
+        front.castShadow = true;
+        group.add(front);
+
+        // Back panel
+        const backShape = new THREE.Shape();
+        backShape.moveTo(backVerts[0][0], backVerts[0][1]);
+        for (let i = 1; i < backVerts.length; i++) {
+            backShape.lineTo(backVerts[i][0], backVerts[i][1]);
+        }
+        const backGeo = new THREE.ExtrudeGeometry(backShape, {
+            depth: 0.005, bevelEnabled: true, bevelThickness: 0.002, bevelSize: 0.001, bevelSegments: 1
+        });
+        const back = new THREE.Mesh(backGeo, mat);
+        back.position.set(0, yBase, -depth - 0.005);
+        back.castShadow = true;
+        group.add(back);
+
+        // Side connecting strips (creates the 3D volume between front and back)
+        [-1, 1].forEach(side => {
+            for (let i = 0; i < widths.length - 1; i++) {
+                const w0 = widths[i], w1 = widths[i + 1];
+                const x0 = side * w0.w, x1 = side * w1.w;
+                const y0 = w0.y + yBase, y1 = w1.y + yBase;
+                const d0 = depth, d1 = depth;
+
+                const sideGeo = new THREE.BufferGeometry();
+                const verts = new Float32Array([
+                    x0, y0, d0,  x0, y0, -d0,  x1, y1, -d1,
+                    x0, y0, d0,  x1, y1, -d1,  x1, y1, d1
+                ]);
+                sideGeo.setAttribute('position', new THREE.BufferAttribute(verts, 3));
+                sideGeo.computeVertexNormals();
+                const sideMesh = new THREE.Mesh(sideGeo, mat);
+                sideMesh.castShadow = true;
+                group.add(sideMesh);
+            }
+
+            // Visible side seam line
+            const seamPts = widths.map(w => new THREE.Vector3(side * w.w, w.y + yBase, depth));
+            const seamGeo = new THREE.BufferGeometry().setFromPoints(seamPts);
+            const seamLine = new THREE.Line(seamGeo, new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.4 }));
+            group.add(seamLine);
+        });
+
+        // Hem (bottom edge) - visible fold
+        const hemW = widths[widths.length - 1].w;
+        const hemY = widths[widths.length - 1].y + yBase;
+        const hemGeo = new THREE.TorusGeometry(hemW, 0.004, 6, 32);
+        const hem = new THREE.Mesh(hemGeo, mat);
+        hem.position.set(0, hemY, 0);
+        hem.rotation.x = Math.PI / 2;
+        hem.scale.y = depth / hemW;
+        hem.castShadow = true;
+        group.add(hem);
+
+        // Apply wrinkle deformation to panels
+        [front, back].forEach(panel => {
+            this.applyFabricDeformation(panel.geometry, {
+                wrinkleAmount: fit === 'tight' ? 0.001 : 0.002,
+                noiseAmount: 0.0006,
+                fitType: fit,
+                stressPoints: [
+                    { y: (heights.waist || 0.3) * 0.5, intensity: 0.7 },
+                    { y: 0.05, intensity: 0.3 }
+                ]
+            });
+        });
+
+        return group;
+    }
+
     // ===== BUILD ALL GARMENTS =====
     buildAllGarments() {
         this.clearGroup(this.garmentGroup);
         this.garments.forEach(g => this.buildOneGarment(g));
         this.garmentGroup.position.y = 0.05;
+        // Trigger gentle auto-rotation on rebuild
+        this._autoRotateTime = 0;
+        this._autoRotateActive = true;
+        setTimeout(() => { this._autoRotateActive = false; }, 2000);
     }
 
-    // ===== PATTERN-BASED GARMENT BUILDER =====
+    // ===== PANEL-BASED GARMENT BUILDER =====
     buildOneGarment(g) {
         const p = this.params, S = p.height / 170, isFem = p.gender === 'female';
         const chF = p.chest / 90, waF = p.waist / (isFem ? 70 : 80);
@@ -549,18 +721,21 @@ class BodyModel {
             });
             torso.scale.z = tZ;
 
-            // Apply fabric deformation to torso
-            this.applyFabricDeformation(torso.geometry, {
-                wrinkleAmount: 0.002 * S,
-                gravityAmount: isDress ? 0.003 * S : 0.001 * S,
-                noiseAmount: 0.0008 * S,
-                fitType: g.fit,
-                stressPoints: [
-                    { y: 0.5 * S, intensity: 0.8 },   // waist area wrinkles
-                    { y: 0.35 * S, intensity: 0.5 },   // below waist
-                    { y: 0.15 * S, intensity: 0.4 },   // hip area
-                ]
-            });
+            // Apply fabric deformation to the mesh inside the group
+            const torsoMesh = torso.children.find(c => c.isMesh);
+            if (torsoMesh) {
+                this.applyFabricDeformation(torsoMesh.geometry, {
+                    wrinkleAmount: 0.002 * S,
+                    gravityAmount: isDress ? 0.003 * S : 0.001 * S,
+                    noiseAmount: 0.0008 * S,
+                    fitType: g.fit,
+                    stressPoints: [
+                        { y: 0.5 * S, intensity: 0.8 },
+                        { y: 0.35 * S, intensity: 0.5 },
+                        { y: 0.15 * S, intensity: 0.4 },
+                    ]
+                });
+            }
 
             this.garmentGroup.add(torso);
 
@@ -1117,11 +1292,36 @@ class BodyModel {
         }
     }
 
+    // ===== HIGHLIGHT ZONE =====
+    highlightZone(zoneName) {
+        // Flash a zone briefly to show what changed
+        if (!this._highlightMat) {
+            this._highlightMat = new THREE.MeshBasicMaterial({ color: 0x7C3AED, transparent: true, opacity: 0.3, side: THREE.DoubleSide });
+        }
+        // Remove previous highlight
+        if (this._highlightMesh) { this.garmentGroup.remove(this._highlightMesh); this._highlightMesh = null; }
+        // zoneName not implemented as full feature yet - triggers auto-rotate instead
+        this._autoRotateActive = true;
+        this._autoRotateTime = 0;
+        setTimeout(() => { this._autoRotateActive = false; }, 1500);
+    }
+
     // ===== API =====
     updateBody(key, val) { this.params[key] = val; this.buildBody(); this.buildAllGarments(); }
     rebuild() { this.buildAllGarments(); }
     resetCamera() { this.camera.position.set(0, 1.0, 3.8); this.controls.target.set(0, 0.95, 0); this.controls.update(); }
     takeScreenshot() { this.renderer.render(this.scene, this.camera); return this.renderer.domElement.toDataURL('image/png'); }
+
+    // Smooth camera pan to focus on a Y-range
+    focusOn(yCenter, distance) {
+        const target = { x: 0, y: yCenter, z: 0 };
+        const camDist = distance || 3.0;
+        // Animate towards target
+        this._focusTarget = target;
+        this._focusDist = camDist;
+        this._focusing = true;
+        setTimeout(() => { this._focusing = false; }, 1000);
+    }
 
     onResize() {
         if (!this.container) return;
@@ -1133,6 +1333,32 @@ class BodyModel {
 
     animate() {
         requestAnimationFrame(() => this.animate());
+
+        // Gentle auto-rotate when garment changes (shows 3D effect)
+        if (this._autoRotateActive && this._autoRotateTime !== undefined) {
+            this._autoRotateTime += 0.016;
+            const angle = Math.sin(this._autoRotateTime * 2.5) * 0.008;
+            this.garmentGroup.rotation.y += angle;
+            this.bodyGroup.rotation.y += angle;
+            if (this._autoRotateTime > 2) {
+                this._autoRotateActive = false;
+                // Smoothly return to center
+                this.garmentGroup.rotation.y *= 0.95;
+                this.bodyGroup.rotation.y *= 0.95;
+            }
+        } else {
+            // Slowly return rotation to 0
+            if (Math.abs(this.garmentGroup.rotation.y) > 0.001) {
+                this.garmentGroup.rotation.y *= 0.96;
+                this.bodyGroup.rotation.y *= 0.96;
+            }
+        }
+
+        // Smooth camera focus
+        if (this._focusing && this._focusTarget) {
+            this.controls.target.y += (this._focusTarget.y - this.controls.target.y) * 0.05;
+        }
+
         this.controls.update();
         this.renderer.render(this.scene, this.camera);
     }
