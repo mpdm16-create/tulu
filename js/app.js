@@ -25,12 +25,33 @@ function goToStep(step) {
         l.classList.toggle('done', i < step);
     });
 
+    // Update mobile nav
+    updateMobileNav();
+
     // Init 3D for the target viewport
     setTimeout(() => {
         if (step === 0) initViewport('viewport1');
         if (step === 1) initViewport('viewport2');
         if (step === 2) { initViewport('viewport3'); buildSummary(); }
     }, 100);
+}
+
+// ===== MOBILE NAV =====
+function updateMobileNav() {
+    const backBtn = document.getElementById('mobileBack');
+    const nextBtn = document.getElementById('mobileNext');
+    const fill = document.getElementById('mobileStepFill');
+    if (!backBtn || !nextBtn || !fill) return;
+
+    backBtn.disabled = currentStep === 0;
+    if (currentStep === 2) {
+        nextBtn.innerHTML = '<i class="fas fa-check"></i> Listo';
+        nextBtn.disabled = true;
+    } else {
+        nextBtn.innerHTML = 'Siguiente <i class="fas fa-arrow-right"></i>';
+        nextBtn.disabled = false;
+    }
+    fill.style.width = `${((currentStep + 1) / 3) * 100}%`;
 }
 
 function initViewport(containerId) {
@@ -75,9 +96,44 @@ document.addEventListener('DOMContentLoaded', () => {
     // Summary actions
     initSummaryActions();
 
+    // Mobile nav buttons
+    document.getElementById('mobileBack')?.addEventListener('click', () => goToStep(currentStep - 1));
+    document.getElementById('mobileNext')?.addEventListener('click', () => goToStep(currentStep + 1));
+
+    // Touch swipe support for wizard
+    initTouchSwipe();
+
+    // Resize handler for 3D viewport
+    window.addEventListener('resize', () => {
+        if (model) model.onResize();
+    });
+
     // Start at step 0
     goToStep(0);
 });
+
+// ===== TOUCH SWIPE =====
+function initTouchSwipe() {
+    const viewport = document.querySelector('.wizard-viewport');
+    if (!viewport) return;
+    let startX = 0;
+    let startY = 0;
+
+    viewport.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', (e) => {
+        const dx = e.changedTouches[0].clientX - startX;
+        const dy = e.changedTouches[0].clientY - startY;
+        // Only trigger if horizontal swipe > 60px and more horizontal than vertical
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            if (dx < 0) goToStep(currentStep + 1);
+            else goToStep(currentStep - 1);
+        }
+    }, { passive: true });
+}
 
 // ===== BODY CONTROLS (Step 1) =====
 function initBodyControls() {
