@@ -144,10 +144,9 @@ function buildConstructorHTML(garment) {
     const cat = def.cat;
     let html = `<h3 class="step-title" style="font-size:.95rem;margin-bottom:16px"><i class="fas ${def.icon}" style="color:var(--pl)"></i> ${def.name}</h3>`;
 
-    // Modular options
     Object.entries(OPTIONS).forEach(([key, opt]) => {
         if (!opt.appliesTo.includes(cat)) return;
-        if (key === 'sleeve' && garment.type === 'tank') return; // no sleeves for tank
+        if (key === 'sleeve' && garment.type === 'tank') return;
         html += `<div class="con-section"><label class="con-label"><i class="fas ${opt.icon}"></i> ${opt.label}</label><div class="con-options">`;
         opt.values.forEach(v => {
             const active = garment[key] === v.id ? 'active' : '';
@@ -156,7 +155,6 @@ function buildConstructorHTML(garment) {
         html += '</div></div>';
     });
 
-    // Color
     html += `<div class="con-section"><label class="con-label"><i class="fas fa-palette"></i> Color</label><div class="con-colors">`;
     COLORS.forEach(c => {
         const active = garment.color === c ? 'active' : '';
@@ -164,7 +162,6 @@ function buildConstructorHTML(garment) {
     });
     html += `</div><div class="con-custom-color"><label>Personalizado:</label><input type="color" class="custom-clr" value="${garment.color}"></div></div>`;
 
-    // Textures
     html += `<div class="con-section"><label class="con-label"><i class="fas fa-th-large"></i> Textura / Estampado</label><div class="con-textures">`;
     TEXTURES.forEach(t => {
         const active = garment.texture === t.id ? 'active' : '';

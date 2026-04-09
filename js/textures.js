@@ -174,17 +174,33 @@ function createFabricTexture(pattern, baseColor, size = 256) {
     return canvas;
 }
 
-function makeTextureMaterial(pattern, color, roughness = 0.72) {
-    const canvas = createFabricTexture(pattern, color);
+function makeTextureMaterial(pattern, color, roughness) {
+    const canvas = createFabricTexture(pattern, color, 512);
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.RepeatWrapping;
     texture.wrapT = THREE.RepeatWrapping;
-    texture.repeat.set(2, 2);
+    texture.repeat.set(3, 3);
+
+    // Adjust roughness per fabric type for realism
+    const fabricRoughness = {
+        solid: 0.7, linen: 0.85, denim: 0.78, stripes: 0.68,
+        hstripes: 0.68, plaid: 0.72, dots: 0.65, floral: 0.65, camo: 0.8
+    };
+    const r = roughness || fabricRoughness[pattern] || 0.72;
+
+    // Create bump effect for fabric depth
+    const bumpCanvas = createFabricTexture(pattern, '#808080', 256);
+    const bumpTexture = new THREE.CanvasTexture(bumpCanvas);
+    bumpTexture.wrapS = THREE.RepeatWrapping;
+    bumpTexture.wrapT = THREE.RepeatWrapping;
+    bumpTexture.repeat.set(3, 3);
 
     return new THREE.MeshStandardMaterial({
         map: texture,
-        roughness: roughness,
-        metalness: 0.02,
+        bumpMap: bumpTexture,
+        bumpScale: 0.003,
+        roughness: r,
+        metalness: 0.01,
         side: THREE.DoubleSide
     });
 }
